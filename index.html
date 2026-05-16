@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Своя игра на поле</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Мультиплеерная ходилка</p>
+        <h1>Комнаты для нескольких групп</h1>
+      </div>
+      <div class="header-actions">
+        <button id="backToLobbyButton" class="ghost-button hidden">К комнатам</button>
+        <button id="signOutButton" class="ghost-button hidden">Выйти</button>
+      </div>
+    </header>
+
+    <div id="configNotice" class="notice hidden">
+      <strong>Нужно подключить Supabase.</strong>
+      Заполни `supabase-config.js`, затем обнови страницу.
+    </div>
+
+    <main id="screenLobby" class="screen lobby-screen">
+      <section class="panel auth-panel">
+        <div class="panel-head">
+          <h2>Ведущий</h2>
+          <p>Ведущий входит по почте и создаёт комнаты с кодом доступа.</p>
+        </div>
+
+        <form id="adminSignInForm" class="stack">
+          <label>
+            Email
+            <input id="adminEmail" type="email" autocomplete="email" required>
+          </label>
+          <label>
+            Пароль
+            <input id="adminPassword" type="password" autocomplete="current-password" required>
+          </label>
+          <div class="row">
+            <button type="submit">Войти</button>
+            <button id="adminSignUpButton" type="button" class="ghost-button">Создать аккаунт</button>
+          </div>
+        </form>
+
+        <div id="adminDashboard" class="hidden stack">
+          <div class="inline-card">
+            <div>
+              <h3>Новая комната</h3>
+              <p>Можно держать несколько независимых комнат для разных групп.</p>
+            </div>
+          </div>
+
+          <form id="createRoomForm" class="stack">
+            <label>
+              Название комнаты
+              <input id="roomTitleInput" type="text" maxlength="80" placeholder="Например, 8Б · Своя игра" required>
+            </label>
+            <label>
+              Бонус за первый правильный ответ
+              <input id="firstCorrectBonusInput" type="number" min="0" max="10" value="1" required>
+            </label>
+            <button type="submit">Создать комнату</button>
+          </form>
+
+          <div class="stack">
+            <div class="inline-card">
+              <div>
+                <h3>Мои комнаты</h3>
+                <p>Комната открывается в этом же окне.</p>
+              </div>
+            </div>
+            <div id="adminRoomsList" class="list"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel join-panel">
+        <div class="panel-head">
+          <h2>Ученик</h2>
+          <p>Ученик входит по 4-значному коду и имени.</p>
+        </div>
+
+        <form id="studentJoinForm" class="stack">
+          <label>
+            Код комнаты
+            <input id="studentRoomCode" type="text" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="1234" required>
+          </label>
+          <label>
+            Имя
+            <input id="studentName" type="text" maxlength="40" placeholder="Например, Маша" required>
+          </label>
+          <button type="submit">Войти в комнату</button>
+        </form>
+      </section>
+
+      <section class="panel help-panel">
+        <div class="panel-head">
+          <h2>Формат вопросов</h2>
+          <p>Для MVP загружается `JSON`-массив. Каждый вопрос двигает ученика по полю.</p>
+        </div>
+        <pre class="code-block">[
+  {
+    "prompt": "Столица Франции",
+    "answer": "Париж",
+    "points": 3
+  },
+  {
+    "prompt": "2 + 2",
+    "answer": "4",
+    "points": 1
+  }
+]</pre>
+      </section>
+    </main>
+
+    <main id="screenRoom" class="screen room-screen hidden">
+      <section class="room-main">
+        <div class="panel room-status">
+          <div class="room-status-grid">
+            <div>
+              <p class="eyebrow">Комната</p>
+              <h2 id="roomTitleLabel">-</h2>
+            </div>
+            <div>
+              <p class="eyebrow">Код</p>
+              <div class="room-code" id="roomCodeLabel">----</div>
+            </div>
+            <div>
+              <p class="eyebrow">Роль</p>
+              <div class="role-badge" id="roleLabel">-</div>
+            </div>
+            <div>
+              <p class="eyebrow">Статус</p>
+              <div class="status-badge" id="roomStatusLabel">-</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel question-panel">
+          <div class="question-card">
+            <p class="eyebrow">Текущий вопрос</p>
+            <h3 id="questionPromptLabel">Вопрос ещё не открыт</h3>
+            <p id="questionMetaLabel" class="question-meta">Ожидание ведущего</p>
+          </div>
+
+          <form id="studentAnswerForm" class="stack hidden">
+            <label>
+              Ваш ответ
+              <textarea id="studentAnswerInput" rows="4" maxlength="500" placeholder="Введите ответ"></textarea>
+            </label>
+            <button type="submit">Отправить ответ</button>
+          </form>
+
+          <div id="studentAnswerState" class="notice subtle hidden"></div>
+        </div>
+
+        <div class="board-and-score">
+          <section class="panel board-panel">
+            <div class="board-frame">
+              <div id="circles-container"></div>
+            </div>
+          </section>
+
+          <section class="panel leaderboard-panel">
+            <div class="panel-head">
+              <h2>Таблица</h2>
+              <p>До 11 учеников в одной комнате.</p>
+            </div>
+            <div id="leaderboardList" class="leaderboard-list"></div>
+          </section>
+        </div>
+      </section>
+
+      <aside id="adminSidebar" class="room-sidebar hidden">
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Вопросы</h2>
+            <p>Ведущий видит правильный ответ и управляет раундом.</p>
+          </div>
+
+          <form id="uploadQuestionsForm" class="stack">
+            <label>
+              JSON-файл с вопросами
+              <input id="questionsFileInput" type="file" accept=".json,application/json">
+            </label>
+            <button type="submit">Загрузить вопросы</button>
+          </form>
+
+          <div id="questionsSummary" class="notice subtle hidden"></div>
+          <div id="questionsList" class="list compact"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Активный вопрос</h2>
+            <p>После закрытия правильные ответы начислят очки автоматически.</p>
+          </div>
+          <div id="adminQuestionBox" class="stack">
+            <div class="notice subtle">Сначала открой вопрос из списка.</div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Админ-панель</h2>
+            <p>Ручная корректировка результата игрока.</p>
+          </div>
+          <div id="adminPlayersList" class="list compact"></div>
+          <div class="row">
+            <button id="finishGameButton" type="button" class="warn-button">Завершить игру</button>
+          </div>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <template id="roomCardTemplate">
+    <article class="list-card">
+      <div>
+        <h3 class="list-card-title"></h3>
+        <p class="list-card-meta"></p>
+      </div>
+      <button type="button">Открыть</button>
+    </article>
+  </template>
+
+  <script type="module" src="script.js"></script>
+</body>
+</html>
