@@ -56,6 +56,7 @@ create table if not exists public.answers (
 create or replace function public.enforce_room_player_limit()
 returns trigger
 language plpgsql
+set search_path = public
 as $$
 begin
   if (
@@ -233,6 +234,7 @@ alter table public.rooms
   on delete set null;
 
 create or replace view public.public_room_state
+with (security_invoker = true)
 as
 select
   id,
@@ -250,6 +252,7 @@ select
 from public.rooms;
 
 create or replace view public.public_room_players
+with (security_invoker = true)
 as
 select
   id,
@@ -262,3 +265,47 @@ from public.room_players;
 
 grant select on public.public_room_state to anon, authenticated;
 grant select on public.public_room_players to anon, authenticated;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_publication
+    where pubname = 'supabase_realtime'
+  ) then
+    create publication supabase_realtime;
+  end if;
+end
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'rooms'
+  ) then
+    alter publication supabase_realtime add table public.rooms;
+  end if;
+
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'room_players'
+  ) then
+    alter publication supabase_realtime add table public.room_players;
+  end if;
+
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'questions'
+  ) then
+    alter publication supabase_realtime add table public.questions;
+  end if;
+
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'answers'
+  ) then
+    alter publication supabase_realtime add table public.answers;
+  end if;
+end
+$$;

@@ -5,6 +5,7 @@
 1. Открой SQL Editor.
 2. Выполни содержимое [supabase-schema.sql](/Users/nikit/Downloads/Ходилка%20-%20v1/supabase-schema.sql).
 3. В Authentication включи `Email`-авторизацию.
+4. В `Database -> Replication` или `Database -> Publications` проверь, что таблицы `rooms`, `room_players`, `questions`, `answers` входят в публикацию `supabase_realtime`.
 
 ## 2. Заполни конфиг фронтенда
 
@@ -67,3 +68,4 @@ python3 -m http.server 8080
 - Аватарки учеников пока не добавлены.
 - История игры и журнал событий пока не сохраняются отдельно.
 - Без реального `Supabase`-проекта я не мог проверить полный realtime-сценарий между двумя браузерами.
+- Если данные не обновляются без перезагрузки, почти всегда причина в том, что таблицы не добавлены в `supabase_realtime` publication или в проекте выключен Realtime.

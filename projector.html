@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Своя игра</title>
+  <title>Своя игра · Экран</title>
   <link rel="stylesheet" href="style.css">
 </head>
-<body data-app="student">
-  <div class="app-shell student-shell">
+<body data-app="projector">
+  <div class="app-shell projector-shell">
     <div id="configNotice" class="notice hidden">
       <strong>Нужно подключить Supabase.</strong>
       Заполни `supabase-config.js`, затем обнови страницу.
@@ -16,25 +16,21 @@
     <main id="screenLobby" class="student-join-screen">
       <section class="panel join-panel join-panel-centered">
         <div class="panel-head">
-          <h1>Вход в комнату</h1>
-          <p>Введите код комнаты и своё имя.</p>
+          <h1>Экран комнаты</h1>
+          <p>Введите код комнаты для режима наблюдателя.</p>
         </div>
 
-        <form id="studentJoinForm" class="stack">
+        <form id="projectorJoinForm" class="stack">
           <label>
             Код комнаты
-            <input id="studentRoomCode" type="text" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="1234" required>
+            <input id="projectorRoomCode" type="text" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="1234" required>
           </label>
-          <label>
-            Имя
-            <input id="studentName" type="text" maxlength="40" placeholder="Например, Маша" required>
-          </label>
-          <button type="submit">Войти</button>
+          <button type="submit">Открыть экран</button>
         </form>
       </section>
     </main>
 
-    <main id="screenRoom" class="student-room-screen hidden">
+    <main id="screenRoom" class="projector-room-screen hidden">
       <section class="student-room-topbar">
         <div class="student-room-meta">
           <div class="room-code-chip" id="roomCodeLabel">----</div>
@@ -43,28 +39,17 @@
             <p id="roomStatusLabel" class="muted-line">-</p>
           </div>
         </div>
-        <button id="signOutButton" class="icon-button hidden" type="button" title="Выйти" aria-label="Выйти">⎋</button>
       </section>
 
-      <section class="panel question-panel">
+      <section class="panel question-panel projector-question-panel">
         <div class="question-card">
           <p class="eyebrow">Текущий вопрос</p>
           <h3 id="questionPromptLabel">Вопрос ещё не открыт</h3>
           <p id="questionMetaLabel" class="question-meta">Ожидание ведущего</p>
         </div>
-
-        <form id="studentAnswerForm" class="stack hidden">
-          <label>
-            Ваш ответ
-            <textarea id="studentAnswerInput" rows="4" maxlength="500" placeholder="Введите ответ"></textarea>
-          </label>
-          <button type="submit">Отправить ответ</button>
-        </form>
-
-        <div id="studentAnswerState" class="notice subtle hidden"></div>
       </section>
 
-      <section class="student-board-layout">
+      <section class="projector-board-layout">
         <section class="panel board-panel board-panel-dominant">
           <div class="board-frame">
             <div id="circles-container"></div>
@@ -74,7 +59,7 @@
         <aside class="panel leaderboard-panel">
           <div class="panel-head">
             <h2>Таблица</h2>
-            <p>До 11 учеников в комнате.</p>
+            <p>Проекционный экран комнаты.</p>
           </div>
           <div id="leaderboardList" class="leaderboard-list"></div>
         </aside>

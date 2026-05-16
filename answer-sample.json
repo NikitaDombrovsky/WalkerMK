@@ -8,5 +8,10 @@
     "prompt": "2 + 2",
     "answer": "4",
     "points": 1
+  },
+    {
+    "prompt": "где я был?",
+    "answer": "бегал",
+    "points": 1
   }
 ]

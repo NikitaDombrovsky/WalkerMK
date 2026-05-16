@@ -1,6 +1,8 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 import { SUPABASE_CONFIG } from "./supabase-config.js";
 
+const PAGE_MODE = document.body.dataset.app || "student";
+
 const BOARD_PATH = [
   { x: 30, y: 1180 },
   { x: 120, y: 1195 }, { x: 240, y: 1195 }, { x: 360, y: 1195 }, { x: 480, y: 1195 },
@@ -32,53 +34,55 @@ const BOARD_PATH = [
 const PLAYER_CLASS_COUNT = 11;
 const STORAGE_KEYS = {
   studentSession: "boardgame-student-session",
-  submittedAnswers: "boardgame-submitted-answers"
+  submittedAnswers: "boardgame-submitted-answers",
+  projectorRoomCode: "boardgame-projector-room-code"
 };
 
+const byId = (id) => document.getElementById(id);
+
 const dom = {
-  configNotice: document.getElementById("configNotice"),
-  screenLobby: document.getElementById("screenLobby"),
-  screenRoom: document.getElementById("screenRoom"),
-  adminDashboard: document.getElementById("adminDashboard"),
-  adminSignInForm: document.getElementById("adminSignInForm"),
-  adminSignUpButton: document.getElementById("adminSignUpButton"),
-  adminEmail: document.getElementById("adminEmail"),
-  adminPassword: document.getElementById("adminPassword"),
-  createRoomForm: document.getElementById("createRoomForm"),
-  roomTitleInput: document.getElementById("roomTitleInput"),
-  firstCorrectBonusInput: document.getElementById("firstCorrectBonusInput"),
-  adminRoomsList: document.getElementById("adminRoomsList"),
-  studentJoinForm: document.getElementById("studentJoinForm"),
-  studentRoomCode: document.getElementById("studentRoomCode"),
-  studentName: document.getElementById("studentName"),
-  signOutButton: document.getElementById("signOutButton"),
-  backToLobbyButton: document.getElementById("backToLobbyButton"),
-  roomTitleLabel: document.getElementById("roomTitleLabel"),
-  roomCodeLabel: document.getElementById("roomCodeLabel"),
-  roleLabel: document.getElementById("roleLabel"),
-  roomStatusLabel: document.getElementById("roomStatusLabel"),
-  questionPromptLabel: document.getElementById("questionPromptLabel"),
-  questionMetaLabel: document.getElementById("questionMetaLabel"),
-  studentAnswerForm: document.getElementById("studentAnswerForm"),
-  studentAnswerInput: document.getElementById("studentAnswerInput"),
-  studentAnswerState: document.getElementById("studentAnswerState"),
-  leaderboardList: document.getElementById("leaderboardList"),
-  adminSidebar: document.getElementById("adminSidebar"),
-  uploadQuestionsForm: document.getElementById("uploadQuestionsForm"),
-  questionsFileInput: document.getElementById("questionsFileInput"),
-  questionsSummary: document.getElementById("questionsSummary"),
-  questionsList: document.getElementById("questionsList"),
-  adminQuestionBox: document.getElementById("adminQuestionBox"),
-  adminPlayersList: document.getElementById("adminPlayersList"),
-  finishGameButton: document.getElementById("finishGameButton"),
-  roomCardTemplate: document.getElementById("roomCardTemplate"),
-  circlesContainer: document.getElementById("circles-container")
+  configNotice: byId("configNotice"),
+  screenLobby: byId("screenLobby"),
+  screenRoom: byId("screenRoom"),
+  adminDashboard: byId("adminDashboard"),
+  adminSignInForm: byId("adminSignInForm"),
+  adminSignUpButton: byId("adminSignUpButton"),
+  adminEmail: byId("adminEmail"),
+  adminPassword: byId("adminPassword"),
+  createRoomForm: byId("createRoomForm"),
+  roomTitleInput: byId("roomTitleInput"),
+  firstCorrectBonusInput: byId("firstCorrectBonusInput"),
+  adminRoomsList: byId("adminRoomsList"),
+  studentJoinForm: byId("studentJoinForm"),
+  studentRoomCode: byId("studentRoomCode"),
+  studentName: byId("studentName"),
+  projectorJoinForm: byId("projectorJoinForm"),
+  projectorRoomCode: byId("projectorRoomCode"),
+  signOutButton: byId("signOutButton"),
+  roomTitleLabel: byId("roomTitleLabel"),
+  roomCodeLabel: byId("roomCodeLabel"),
+  roomStatusLabel: byId("roomStatusLabel"),
+  questionPromptLabel: byId("questionPromptLabel"),
+  questionMetaLabel: byId("questionMetaLabel"),
+  studentAnswerForm: byId("studentAnswerForm"),
+  studentAnswerInput: byId("studentAnswerInput"),
+  studentAnswerState: byId("studentAnswerState"),
+  leaderboardList: byId("leaderboardList"),
+  uploadQuestionsForm: byId("uploadQuestionsForm"),
+  questionsFileInput: byId("questionsFileInput"),
+  questionsSummary: byId("questionsSummary"),
+  questionsList: byId("questionsList"),
+  adminQuestionBox: byId("adminQuestionBox"),
+  adminPlayersList: byId("adminPlayersList"),
+  finishGameButton: byId("finishGameButton"),
+  roomCardTemplate: byId("roomCardTemplate"),
+  circlesContainer: byId("circles-container"),
+  openProjectorLink: byId("openProjectorLink")
 };
 
 const appState = {
   supabase: null,
   authUser: null,
-  role: null,
   room: null,
   roomPlayers: [],
   questions: [],
@@ -91,6 +95,36 @@ const appState = {
 let circles = [];
 let playerElements = new Map();
 
+function hasDom(element) {
+  return Boolean(element);
+}
+
+function isAdminPage() {
+  return PAGE_MODE === "admin";
+}
+
+function isStudentPage() {
+  return PAGE_MODE === "student";
+}
+
+function isProjectorPage() {
+  return PAGE_MODE === "projector";
+}
+
+function showElement(element, shouldShow) {
+  if (element) {
+    element.classList.toggle("hidden", !shouldShow);
+  }
+}
+
+function setMessage(element, message, visible = true) {
+  if (!element) {
+    return;
+  }
+  element.textContent = message;
+  showElement(element, visible);
+}
+
 function isSupabaseConfigured() {
   return (
     SUPABASE_CONFIG &&
@@ -99,15 +133,6 @@ function isSupabaseConfigured() {
     !SUPABASE_CONFIG.url.includes("YOUR_SUPABASE_URL") &&
     !SUPABASE_CONFIG.anonKey.includes("YOUR_SUPABASE_ANON_KEY")
   );
-}
-
-function showElement(element, shouldShow) {
-  element.classList.toggle("hidden", !shouldShow);
-}
-
-function setMessage(element, message, visible = true) {
-  element.textContent = message;
-  showElement(element, visible);
 }
 
 function normalizeAnswer(value) {
@@ -142,6 +167,10 @@ function formatStatus(status) {
   }
 }
 
+function buildProjectorHref(roomCode) {
+  return `./projector.html?room=${encodeURIComponent(roomCode)}`;
+}
+
 function saveStudentSession(roomCode, participant) {
   localStorage.setItem(
     STORAGE_KEYS.studentSession,
@@ -168,6 +197,18 @@ function loadStudentSession() {
 
 function clearStudentSession() {
   localStorage.removeItem(STORAGE_KEYS.studentSession);
+}
+
+function saveProjectorRoomCode(roomCode) {
+  localStorage.setItem(STORAGE_KEYS.projectorRoomCode, roomCode);
+}
+
+function loadProjectorRoomCode() {
+  return localStorage.getItem(STORAGE_KEYS.projectorRoomCode);
+}
+
+function clearProjectorRoomCode() {
+  localStorage.removeItem(STORAGE_KEYS.projectorRoomCode);
 }
 
 function loadSubmittedAnswersMap() {
@@ -199,6 +240,10 @@ function hasSubmittedAnswer(roomCode, questionId) {
 }
 
 function createPath() {
+  if (!hasDom(dom.circlesContainer)) {
+    return;
+  }
+
   const circleSize = 50;
   circles = [];
   dom.circlesContainer.innerHTML = "";
@@ -235,6 +280,10 @@ function positionPlayerNearCircle(circle, playerElement, playerIndex, totalPlaye
 }
 
 function ensurePlayerElements() {
+  if (!hasDom(dom.circlesContainer)) {
+    return;
+  }
+
   const existing = new Set();
 
   appState.roomPlayers.forEach((player, index) => {
@@ -244,7 +293,6 @@ function ensurePlayerElements() {
     if (!element) {
       element = document.createElement("div");
       element.className = `player ${getPlayerClass(index)}`;
-      element.title = player.display_name;
       dom.circlesContainer.appendChild(element);
       playerElements.set(player.id, element);
     }
@@ -255,14 +303,17 @@ function ensurePlayerElements() {
 
   [...playerElements.keys()].forEach((playerId) => {
     if (!existing.has(playerId)) {
-      const element = playerElements.get(playerId);
-      element.remove();
+      playerElements.get(playerId)?.remove();
       playerElements.delete(playerId);
     }
   });
 }
 
 function renderBoardPlayers() {
+  if (!hasDom(dom.circlesContainer)) {
+    return;
+  }
+
   ensurePlayerElements();
   appState.roomPlayers.forEach((player, index) => {
     const element = playerElements.get(player.id);
@@ -275,6 +326,10 @@ function renderBoardPlayers() {
 }
 
 function renderLeaderboard() {
+  if (!hasDom(dom.leaderboardList)) {
+    return;
+  }
+
   const sortedPlayers = [...appState.roomPlayers].sort((left, right) => {
     if (right.score !== left.score) {
       return right.score - left.score;
@@ -311,44 +366,34 @@ function hasStudentAnsweredCurrentQuestion() {
     return false;
   }
 
-  if (appState.role === "student") {
-    return hasSubmittedAnswer(appState.currentRoomLookupCode, appState.room.active_question_id);
-  }
-
-  return appState.answers.some((answer) => {
-    return (
-      answer.player_id === appState.participant?.id &&
-      answer.question_id === appState.room.active_question_id
-    );
-  });
+  return hasSubmittedAnswer(appState.currentRoomLookupCode, appState.room.active_question_id);
 }
 
 function renderQuestionState() {
-  const room = appState.room;
-  if (!room) {
+  if (!hasDom(dom.questionPromptLabel) || !appState.room) {
     return;
   }
+
+  const room = appState.room;
 
   dom.questionPromptLabel.textContent = room.active_question_prompt || "Вопрос ещё не открыт";
   dom.questionMetaLabel.textContent = room.active_question_prompt
     ? `Стоимость: ${room.active_question_points || 0} очк.`
     : "Ожидание ведущего";
 
+  if (!isStudentPage()) {
+    return;
+  }
+
   const showStudentAnswerForm =
-    appState.role === "student" &&
     room.status === "question" &&
     room.active_question_id &&
     !hasStudentAnsweredCurrentQuestion();
 
   showElement(dom.studentAnswerForm, showStudentAnswerForm);
 
-  if (appState.role !== "student") {
-    showElement(dom.studentAnswerState, false);
-    return;
-  }
-
   if (room.status === "finished") {
-    setMessage(dom.studentAnswerState, "Игра завершена. Итоги показаны справа.");
+    setMessage(dom.studentAnswerState, "Игра завершена. Итоги показаны в таблице.");
     return;
   }
 
@@ -366,7 +411,7 @@ function renderQuestionState() {
 }
 
 function renderAdminQuestionBox() {
-  if (appState.role !== "admin" || !appState.room) {
+  if (!isAdminPage() || !hasDom(dom.adminQuestionBox) || !appState.room) {
     return;
   }
 
@@ -402,25 +447,22 @@ function renderAdminQuestionBox() {
       <strong>Базовая стоимость:</strong> ${activeQuestion.points}
       · <strong>Бонус первому:</strong> ${room.first_correct_bonus}
     </div>
-    <div class="stack">
-      ${answersHtml}
-    </div>
+    <div class="stack">${answersHtml}</div>
     <div class="row">
       <button id="closeQuestionButton" type="button">Закрыть вопрос</button>
     </div>
   `;
 
-  document.getElementById("closeQuestionButton")?.addEventListener("click", closeActiveQuestion);
+  byId("closeQuestionButton")?.addEventListener("click", closeActiveQuestion);
 }
 
 function renderQuestionsList() {
-  if (appState.role !== "admin") {
+  if (!isAdminPage() || !hasDom(dom.questionsList)) {
     return;
   }
 
   const total = appState.questions.length;
   const unused = appState.questions.filter((question) => !question.is_used).length;
-
   setMessage(dom.questionsSummary, `Всего вопросов: ${total}. Неиспользованных: ${unused}.`, total > 0);
 
   dom.questionsList.innerHTML = "";
@@ -433,13 +475,9 @@ function renderQuestionsList() {
     item.innerHTML = `
       <div>
         <h3 class="list-card-title">${escapeHtml(question.prompt)}</h3>
-        <p class="list-card-meta">
-          ${question.points} очк. · ${question.is_used ? "использован" : "готов"}
-        </p>
+        <p class="list-card-meta">${question.points} очк. · ${question.is_used ? "использован" : "готов"}</p>
       </div>
-      <button type="button" ${question.is_used || appState.room?.status === "question" ? "disabled" : ""}>
-        Открыть
-      </button>
+      <button type="button" ${question.is_used || appState.room?.status === "question" ? "disabled" : ""}>Открыть</button>
     `;
     item.querySelector("button")?.addEventListener("click", () => openQuestion(question.id));
     dom.questionsList.appendChild(item);
@@ -447,7 +485,7 @@ function renderQuestionsList() {
 }
 
 function renderAdminPlayers() {
-  if (appState.role !== "admin") {
+  if (!isAdminPage() || !hasDom(dom.adminPlayersList)) {
     return;
   }
 
@@ -479,14 +517,22 @@ function renderRoomMeta() {
     return;
   }
 
-  dom.roomTitleLabel.textContent = appState.room.title;
-  dom.roomCodeLabel.textContent = appState.room.code;
-  dom.roleLabel.textContent = appState.role === "admin" ? "Ведущий" : "Ученик";
-  dom.roomStatusLabel.textContent = formatStatus(appState.room.status);
+  if (hasDom(dom.roomTitleLabel)) {
+    dom.roomTitleLabel.textContent = appState.room.title;
+  }
+  if (hasDom(dom.roomCodeLabel)) {
+    dom.roomCodeLabel.textContent = appState.room.code;
+  }
+  if (hasDom(dom.roomStatusLabel)) {
+    dom.roomStatusLabel.textContent = formatStatus(appState.room.status);
+  }
+  if (hasDom(dom.openProjectorLink)) {
+    dom.openProjectorLink.href = buildProjectorHref(appState.room.code);
+  }
 }
 
 function renderTopThreeIfFinished() {
-  if (!appState.room || appState.room.status !== "finished") {
+  if (!appState.room || appState.room.status !== "finished" || !hasDom(dom.questionPromptLabel)) {
     return;
   }
 
@@ -517,10 +563,11 @@ function renderRoom() {
 function showLobby() {
   showElement(dom.screenLobby, true);
   showElement(dom.screenRoom, false);
-  showElement(dom.backToLobbyButton, false);
-  showElement(dom.signOutButton, Boolean(appState.authUser));
-  showElement(dom.adminSidebar, false);
-  appState.role = null;
+  if (isAdminPage()) {
+    showElement(dom.signOutButton, Boolean(appState.authUser));
+  } else if (isStudentPage()) {
+    showElement(dom.signOutButton, false);
+  }
   appState.room = null;
   appState.questions = [];
   appState.answers = [];
@@ -529,13 +576,10 @@ function showLobby() {
   clearSubscriptions();
 }
 
-function showRoom(role) {
-  appState.role = role;
+function showRoom() {
   showElement(dom.screenLobby, false);
   showElement(dom.screenRoom, true);
-  showElement(dom.backToLobbyButton, true);
-  showElement(dom.adminSidebar, role === "admin");
-  showElement(dom.signOutButton, Boolean(appState.authUser));
+  showElement(dom.signOutButton, isAdminPage() || isStudentPage());
   renderRoom();
 }
 
@@ -548,14 +592,17 @@ async function initializeSupabase() {
   appState.supabase = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
   const { data } = await appState.supabase.auth.getUser();
   appState.authUser = data.user || null;
-  showElement(dom.adminDashboard, Boolean(appState.authUser));
-  showElement(dom.signOutButton, Boolean(appState.authUser));
+
+  if (isAdminPage()) {
+    showElement(dom.adminDashboard, Boolean(appState.authUser));
+    showElement(dom.signOutButton, Boolean(appState.authUser));
+  }
+
   return true;
 }
 
 async function refreshAdminRooms() {
-  if (!appState.authUser) {
-    dom.adminRoomsList.innerHTML = "";
+  if (!isAdminPage() || !appState.authUser || !hasDom(dom.adminRoomsList)) {
     return;
   }
 
@@ -575,14 +622,16 @@ async function refreshAdminRooms() {
     const fragment = dom.roomCardTemplate.content.cloneNode(true);
     fragment.querySelector(".list-card-title").textContent = room.title;
     fragment.querySelector(".list-card-meta").textContent = `Код ${room.code} · ${formatStatus(room.status)}`;
-    fragment.querySelector("button").addEventListener("click", () => openAdminRoom(room.id));
+    fragment.querySelector('[data-action="open-admin"]')?.addEventListener("click", () => openAdminRoom(room.id));
+    fragment.querySelector('[data-action="open-projector"]')?.addEventListener("click", () => {
+      window.open(buildProjectorHref(room.code), "_blank", "noopener");
+    });
     dom.adminRoomsList.appendChild(fragment);
   });
 }
 
 async function adminSignIn(event) {
   event.preventDefault();
-
   const email = dom.adminEmail.value.trim();
   const password = dom.adminPassword.value;
 
@@ -640,11 +689,6 @@ async function generateUniqueRoomCode() {
 async function createRoom(event) {
   event.preventDefault();
 
-  if (!appState.authUser) {
-    alert("Сначала войди как ведущий.");
-    return;
-  }
-
   const code = await generateUniqueRoomCode();
   const payload = {
     code,
@@ -700,7 +744,7 @@ async function fetchPublicRoomByCode(code) {
 }
 
 async function fetchRoomPlayers(roomId) {
-  const source = appState.role === "admin" ? "room_players" : "public_room_players";
+  const source = isAdminPage() ? "room_players" : "public_room_players";
   const { data, error } = await appState.supabase
     .from(source)
     .select("*")
@@ -715,7 +759,7 @@ async function fetchRoomPlayers(roomId) {
 }
 
 async function fetchQuestions(roomId) {
-  if (appState.role !== "admin") {
+  if (!isAdminPage()) {
     return [];
   }
 
@@ -733,7 +777,7 @@ async function fetchQuestions(roomId) {
 }
 
 async function fetchAnswers(roomId) {
-  if (appState.role !== "admin") {
+  if (!isAdminPage()) {
     return [];
   }
 
@@ -757,7 +801,7 @@ async function hydrateRoom() {
 
   const roomId = appState.room.id;
 
-  if (appState.role === "admin") {
+  if (isAdminPage()) {
     appState.room = await fetchAdminRoom(roomId);
   } else {
     appState.room = await fetchPublicRoomByCode(appState.currentRoomLookupCode);
@@ -767,7 +811,7 @@ async function hydrateRoom() {
   appState.questions = await fetchQuestions(roomId);
   appState.answers = await fetchAnswers(roomId);
 
-  if (appState.role === "student" && appState.participant) {
+  if (isStudentPage() && appState.participant) {
     const currentParticipant = appState.roomPlayers.find((player) => player.id === appState.participant.id);
     if (currentParticipant) {
       appState.participant = currentParticipant;
@@ -789,42 +833,21 @@ function subscribeToRoom(roomId) {
   clearSubscriptions();
 
   appState.channel = appState.supabase
-    .channel(`room-${roomId}`)
-    .on("postgres_changes", {
-      event: "*",
-      schema: "public",
-      table: "rooms",
-      filter: `id=eq.${roomId}`
-    }, hydrateRoom)
-    .on("postgres_changes", {
-      event: "*",
-      schema: "public",
-      table: "room_players",
-      filter: `room_id=eq.${roomId}`
-    }, hydrateRoom)
-    .on("postgres_changes", {
-      event: "*",
-      schema: "public",
-      table: "questions",
-      filter: `room_id=eq.${roomId}`
-    }, hydrateRoom)
-    .on("postgres_changes", {
-      event: "*",
-      schema: "public",
-      table: "answers",
-      filter: `room_id=eq.${roomId}`
-    }, hydrateRoom)
+    .channel(`room-${roomId}-${PAGE_MODE}`)
+    .on("postgres_changes", { event: "*", schema: "public", table: "rooms", filter: `id=eq.${roomId}` }, hydrateRoom)
+    .on("postgres_changes", { event: "*", schema: "public", table: "room_players", filter: `room_id=eq.${roomId}` }, hydrateRoom)
+    .on("postgres_changes", { event: "*", schema: "public", table: "questions", filter: `room_id=eq.${roomId}` }, hydrateRoom)
+    .on("postgres_changes", { event: "*", schema: "public", table: "answers", filter: `room_id=eq.${roomId}` }, hydrateRoom)
     .subscribe();
 }
 
 async function openAdminRoom(roomId) {
-  appState.role = "admin";
   appState.room = await fetchAdminRoom(roomId);
   appState.currentRoomLookupCode = appState.room.code;
   appState.participant = null;
   await hydrateRoom();
   subscribeToRoom(roomId);
-  showRoom("admin");
+  showRoom();
 }
 
 async function joinStudentRoom(event) {
@@ -870,13 +893,35 @@ async function joinStudentRoom(event) {
     appState.currentRoomLookupCode = code;
     appState.room = room;
     appState.participant = participant;
-    appState.role = "student";
     saveStudentSession(code, participant);
     await hydrateRoom();
     subscribeToRoom(room.id);
-    showRoom("student");
+    showRoom();
   } catch (error) {
     alert(error.message || "Не удалось войти в комнату.");
+  }
+}
+
+async function joinProjectorRoom(event, codeOverride = null) {
+  if (event) {
+    event.preventDefault();
+  }
+
+  const code = codeOverride || dom.projectorRoomCode?.value.trim();
+  if (!code) {
+    return;
+  }
+
+  try {
+    const room = await fetchPublicRoomByCode(code);
+    appState.currentRoomLookupCode = code;
+    appState.room = room;
+    saveProjectorRoomCode(code);
+    await hydrateRoom();
+    subscribeToRoom(room.id);
+    showRoom();
+  } catch (error) {
+    alert(error.message || "Не удалось открыть комнату.");
   }
 }
 
@@ -902,10 +947,6 @@ function parseQuestionsJson(raw) {
 
 async function uploadQuestions(event) {
   event.preventDefault();
-
-  if (!appState.room || appState.role !== "admin") {
-    return;
-  }
 
   const file = dom.questionsFileInput.files?.[0];
   if (!file) {
@@ -1039,6 +1080,7 @@ async function closeActiveQuestion() {
     }
     return {
       id: answer.id,
+      playerId: answer.player_id,
       is_correct: isCorrect,
       bonus_points: 0,
       awarded_points: 0
@@ -1048,10 +1090,7 @@ async function closeActiveQuestion() {
       return answer;
     }
 
-    const bonus = answer.id && answers.find((row) => row.id === answer.id)?.player_id === firstCorrectPlayerId
-      ? room.first_correct_bonus
-      : 0;
-
+    const bonus = answer.playerId === firstCorrectPlayerId ? room.first_correct_bonus : 0;
     return {
       ...answer,
       bonus_points: bonus,
@@ -1060,7 +1099,7 @@ async function closeActiveQuestion() {
   });
 
   for (const answerUpdate of answerUpdates) {
-    const { error: answersError } = await appState.supabase
+    const { error } = await appState.supabase
       .from("answers")
       .update({
         is_correct: answerUpdate.is_correct,
@@ -1069,8 +1108,8 @@ async function closeActiveQuestion() {
       })
       .eq("id", answerUpdate.id);
 
-    if (answersError) {
-      alert(answersError.message);
+    if (error) {
+      alert(error.message);
       return;
     }
   }
@@ -1080,11 +1119,7 @@ async function closeActiveQuestion() {
     if (!update.awarded_points) {
       return;
     }
-    const original = answers.find((answer) => answer.id === update.id);
-    playerTotals.set(
-      original.player_id,
-      (playerTotals.get(original.player_id) || 0) + update.awarded_points
-    );
+    playerTotals.set(update.playerId, (playerTotals.get(update.playerId) || 0) + update.awarded_points);
   });
 
   for (const player of appState.roomPlayers) {
@@ -1132,19 +1167,11 @@ async function closeActiveQuestion() {
     return;
   }
 
-  await appState.supabase
-    .from("rooms")
-    .update({ status: "lobby" })
-    .eq("id", room.id);
-
+  await appState.supabase.from("rooms").update({ status: "lobby" }).eq("id", room.id);
   await hydrateRoom();
 }
 
 async function finishGame() {
-  if (!appState.room || appState.role !== "admin") {
-    return;
-  }
-
   const topThree = [...appState.roomPlayers]
     .sort((left, right) => right.score - left.score)
     .slice(0, 3)
@@ -1174,19 +1201,27 @@ async function finishGame() {
 }
 
 async function signOut() {
-  clearStudentSession();
   clearSubscriptions();
 
-  if (appState.authUser) {
+  if (isAdminPage()) {
     await appState.supabase.auth.signOut();
+    appState.authUser = null;
+    showElement(dom.adminDashboard, false);
+    showLobby();
+    return;
   }
 
-  appState.authUser = null;
-  showElement(dom.adminDashboard, false);
-  showLobby();
+  if (isStudentPage()) {
+    clearStudentSession();
+    showLobby();
+  }
 }
 
 async function tryRestoreStudentSession() {
+  if (!isStudentPage()) {
+    return;
+  }
+
   const session = loadStudentSession();
   if (!session?.roomCode || !session?.participantId) {
     return;
@@ -1209,28 +1244,61 @@ async function tryRestoreStudentSession() {
     appState.currentRoomLookupCode = session.roomCode;
     appState.room = room;
     appState.participant = players.data;
-    appState.role = "student";
     await hydrateRoom();
     subscribeToRoom(room.id);
-    showRoom("student");
+    showRoom();
   } catch {
     clearStudentSession();
   }
 }
 
+async function tryRestoreProjectorSession() {
+  if (!isProjectorPage()) {
+    return;
+  }
+
+  const urlCode = new URLSearchParams(window.location.search).get("room");
+  const savedCode = urlCode || loadProjectorRoomCode();
+  if (!savedCode) {
+    return;
+  }
+
+  if (hasDom(dom.projectorRoomCode)) {
+    dom.projectorRoomCode.value = savedCode;
+  }
+
+  await joinProjectorRoom(null, savedCode);
+}
+
 function bindEvents() {
-  dom.adminSignInForm.addEventListener("submit", adminSignIn);
-  dom.adminSignUpButton.addEventListener("click", adminSignUp);
-  dom.createRoomForm.addEventListener("submit", createRoom);
-  dom.studentJoinForm.addEventListener("submit", joinStudentRoom);
-  dom.uploadQuestionsForm.addEventListener("submit", uploadQuestions);
-  dom.studentAnswerForm.addEventListener("submit", submitStudentAnswer);
-  dom.finishGameButton.addEventListener("click", finishGame);
-  dom.signOutButton.addEventListener("click", signOut);
-  dom.backToLobbyButton.addEventListener("click", async () => {
-    showLobby();
-    await refreshAdminRooms();
-  });
+  if (hasDom(dom.adminSignInForm)) {
+    dom.adminSignInForm.addEventListener("submit", adminSignIn);
+  }
+  if (hasDom(dom.adminSignUpButton)) {
+    dom.adminSignUpButton.addEventListener("click", adminSignUp);
+  }
+  if (hasDom(dom.createRoomForm)) {
+    dom.createRoomForm.addEventListener("submit", createRoom);
+  }
+  if (hasDom(dom.studentJoinForm)) {
+    dom.studentJoinForm.addEventListener("submit", joinStudentRoom);
+  }
+  if (hasDom(dom.projectorJoinForm)) {
+    dom.projectorJoinForm.addEventListener("submit", (event) => joinProjectorRoom(event));
+  }
+  if (hasDom(dom.uploadQuestionsForm)) {
+    dom.uploadQuestionsForm.addEventListener("submit", uploadQuestions);
+  }
+  if (hasDom(dom.studentAnswerForm)) {
+    dom.studentAnswerForm.addEventListener("submit", submitStudentAnswer);
+  }
+  if (hasDom(dom.finishGameButton)) {
+    dom.finishGameButton.addEventListener("click", finishGame);
+  }
+  if (hasDom(dom.signOutButton)) {
+    dom.signOutButton.addEventListener("click", signOut);
+  }
+
   window.addEventListener("resize", renderBoardPlayers);
 }
 
@@ -1243,12 +1311,13 @@ async function init() {
     return;
   }
 
-  if (appState.authUser) {
+  if (isAdminPage() && appState.authUser) {
     showElement(dom.adminDashboard, true);
     await refreshAdminRooms();
   }
 
   await tryRestoreStudentSession();
+  await tryRestoreProjectorSession();
 }
 
 init();
