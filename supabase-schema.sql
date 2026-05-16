@@ -89,6 +89,13 @@ to authenticated
 using (auth.uid() = admin_user_id)
 with check (auth.uid() = admin_user_id);
 
+drop policy if exists "public_can_read_rooms" on public.rooms;
+create policy "public_can_read_rooms"
+on public.rooms
+for select
+to anon, authenticated
+using (true);
+
 drop policy if exists "admins_manage_room_players" on public.room_players;
 create policy "admins_manage_room_players"
 on public.room_players
@@ -124,6 +131,13 @@ with check (
       and rooms.status in ('lobby', 'question', 'review')
   )
 );
+
+drop policy if exists "public_can_read_room_players" on public.room_players;
+create policy "public_can_read_room_players"
+on public.room_players
+for select
+to anon, authenticated
+using (true);
 
 drop policy if exists "admins_manage_questions" on public.questions;
 create policy "admins_manage_questions"
@@ -181,6 +195,20 @@ with check (
     where rooms.id = answers.room_id
       and rooms.active_question_id = answers.question_id
       and rooms.status = 'question'
+  )
+);
+
+drop policy if exists "students_read_own_answers_for_active_room" on public.answers;
+create policy "students_read_own_answers_for_active_room"
+on public.answers
+for select
+to anon, authenticated
+using (
+  exists (
+    select 1
+    from public.rooms
+    where rooms.id = answers.room_id
+      and rooms.status in ('question', 'review', 'finished', 'lobby')
   )
 );
 

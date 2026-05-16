@@ -1059,8 +1059,16 @@ async function closeActiveQuestion() {
     };
   });
 
-  if (answerUpdates.length) {
-    const { error: answersError } = await appState.supabase.from("answers").upsert(answerUpdates);
+  for (const answerUpdate of answerUpdates) {
+    const { error: answersError } = await appState.supabase
+      .from("answers")
+      .update({
+        is_correct: answerUpdate.is_correct,
+        bonus_points: answerUpdate.bonus_points,
+        awarded_points: answerUpdate.awarded_points
+      })
+      .eq("id", answerUpdate.id);
+
     if (answersError) {
       alert(answersError.message);
       return;
