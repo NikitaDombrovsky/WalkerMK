@@ -1,5 +1,5 @@
 import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
-import { SUPABASE_CONFIG } from "./supabase-config.js";
+import { SUPABASE_CONFIG } from "../supabase/config.js";
 
 const PAGE_MODE = document.body.dataset.app || "student";
 
